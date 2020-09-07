@@ -7231,6 +7231,7 @@ RtAudio::DeviceInfo RtApiAlsa :: getDeviceInfo( unsigned int device )
   unsigned nDevices = 0;
   int result=-1, subdevice=-1, card=-1;
   char name[64];
+  const char* cardid = nullptr;
   snd_ctl_t *chandle = 0;
 
   result = snd_ctl_open( &chandle, "default", SND_CTL_NONBLOCK );
@@ -7253,6 +7254,15 @@ RtAudio::DeviceInfo RtApiAlsa :: getDeviceInfo( unsigned int device )
       error( RtAudioError::WARNING );
       goto nextcard;
     }
+
+    // obtain device card ID
+    snd_ctl_card_info_t *card_info;
+    snd_ctl_card_info_alloca(&card_info);
+
+    if(snd_ctl_card_info(chandle, card_info) >= 0) {
+      cardid = snd_ctl_card_info_get_id(card_info);
+    }
+
     subdevice = -1;
     while( 1 ) {
       result = snd_ctl_pcm_next_device( chandle, &subdevice );
@@ -7499,7 +7509,12 @@ RtAudio::DeviceInfo RtApiAlsa :: getDeviceInfo( unsigned int device )
     char *cardname;
     result = snd_card_get_name( card, &cardname );
     if ( result >= 0 ) {
-      sprintf( name, "hw:%s,%d", cardname, subdevice );
+      if(cardid == nullptr) {
+        sprintf( name, "hw:%s,%d", cardname, subdevice );
+      }
+      else {
+        sprintf( name, "hw:%s:%s,%d", cardname, cardid, subdevice );
+      }
       free( cardname );
     }
   }
